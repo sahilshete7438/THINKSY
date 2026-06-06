@@ -1,14 +1,24 @@
 import "./Sidebar.css";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 import { useContext, useEffect } from "react";
 import { MyContext } from "./MyContext.jsx";
 import {v1 as uuidv1} from "uuid";
 
 function Sidebar() {
-    const {allThreads, setAllThreads, currThreadId, setNewChat, setPrompt, setReply, setCurrThreadId, setPrevChats} = useContext(MyContext);
+    const {allThreads, setAllThreads, currThreadId, setNewChat, setPrompt, setReply, setCurrThreadId, setPrevChats, token, logout, sidebarOpen, setSidebarOpen} = useContext(MyContext);
 
     const getAllThreads = async () => {
         try {
-            const response = await fetch("http://localhost:8080/api/thread");
+            const response = await fetch(`${API_URL}/api/thread`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            if (response.status === 401) {
+                logout();
+                return;
+            }
             const res = await response.json();
             const filteredData = res.map(thread => ({threadId: thread.threadId, title: thread.title}));
             //console.log(filteredData);
@@ -19,8 +29,10 @@ function Sidebar() {
     };
 
     useEffect(() => {
-        getAllThreads();
-    }, [currThreadId])
+        if (token) {
+            getAllThreads();
+        }
+    }, [currThreadId, token])
 
 
     const createNewChat = () => {
@@ -29,13 +41,23 @@ function Sidebar() {
         setReply(null);
         setCurrThreadId(uuidv1());
         setPrevChats([]);
+        setSidebarOpen(false);
     }
 
     const changeThread = async (newThreadId) => {
         setCurrThreadId(newThreadId);
+        setSidebarOpen(false);
 
         try {
-            const response = await fetch(`http://localhost:8080/api/thread/${newThreadId}`);
+            const response = await fetch(`${API_URL}/api/thread/${newThreadId}`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            if (response.status === 401) {
+                logout();
+                return;
+            }
             const res = await response.json();
             console.log(res);
             setPrevChats(res);
@@ -48,7 +70,16 @@ function Sidebar() {
 
     const deleteThread = async (threadId) => {
         try {
-            const response = await fetch(`http://localhost:8080/api/thread/${threadId}`, {method: "DELETE"});
+            const response = await fetch(`${API_URL}/api/thread/${threadId}`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+            if (response.status === 401) {
+                logout();
+                return;
+            }
             const res = await response.json();
             console.log(res);
 
@@ -65,8 +96,10 @@ function Sidebar() {
     }
 
     return (
-        <section className="sidebar">
-            <button onClick={createNewChat}>
+        <>
+            {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
+            <section className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+                <button onClick={createNewChat}>
                 <img src="src/assets/blacklogo.png" alt="gpt logo" className="logo"></img>
                 <span><i className="fa-solid fa-pen-to-square"></i></span>
             </button>
@@ -95,6 +128,7 @@ function Sidebar() {
                 <p>By Sahil Shete &hearts;</p>
             </div>
         </section>
+        </>
     )
 }
 
